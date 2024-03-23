@@ -594,11 +594,6 @@ void MainWindow::updateEncodingActions(const Editor *e)
     }
 }
 
-void MainWindow::disableEncodingActions()
-{
-    updateEncodingActions(nullptr);
-}
-
 void MainWindow::updateEditorActions(const Editor *e)
 {
     //it's not a compile action, but put here for convinience
@@ -3286,7 +3281,7 @@ bool MainWindow::saveLastOpens()
       fileObj["focused"] = editor->hasFocus();
       fileObj["caretX"] = editor->caretX();
       fileObj["caretY"] = editor->caretY();
-      fileObj["topLine"] = editor->topLine();
+      fileObj["top"] = editor->topPos();
       fileObj["left"] = editor->leftPos();
       filesArray.append(fileObj);
     }
@@ -3388,8 +3383,8 @@ void MainWindow::loadLastOpens()
         pos.ch = fileObj["caretX"].toInt(1);
         pos.line = fileObj["caretY"].toInt(1);
         editor->setCaretXY(pos);
-        editor->setTopLine(
-                    fileObj["topLine"].toInt(1)
+        editor->setTopPos(
+                    fileObj["top"].toInt(1)
                     );
         editor->setLeftPos(
                     fileObj["left"].toInt(1)
@@ -3639,8 +3634,6 @@ void MainWindow::buildEncodingMenu()
     }
 
     mMenuEncoding = new QMenu(this);
-    connect(mMenuEncoding, &QMenu::aboutToHide,
-            this, &MainWindow::disableEncodingActions);
     mMenuEncoding->setTitle(tr("File Encoding"));
     mMenuEncoding->addAction(ui->actionAuto_Detect);
     mMenuEncoding->addAction(ui->actionEncode_in_ANSI);
@@ -4022,8 +4015,6 @@ void MainWindow::onDebugConsoleContextMenu(const QPoint &pos)
 
 void MainWindow::onFileEncodingContextMenu(const QPoint &pos)
 {
-    Editor * e = mEditorList->getEditor();
-    updateEncodingActions(e);
     if (mMenuEncoding->isEnabled())
         mMenuEncoding->exec(mFileEncodingStatus->mapToGlobal(pos));
 }
@@ -5491,7 +5482,11 @@ void MainWindow::onFileChanged(const QString &path)
                                       QMessageBox::Yes|QMessageBox::No,
                                       QMessageBox::No) == QMessageBox::Yes) {
                 try {
+                    int top = e->topPos();
+                    QSynedit::BufferCoord caretPos = e->caretXY();
                     e->loadFile();
+                    e->setCaretPositionAndActivate(caretPos.line,1);
+                    e->setTopPos(top);
                 } catch(FileError e) {
                     QMessageBox::critical(this,tr("Error"),e.reason());
                 }
@@ -9773,7 +9768,6 @@ void MainWindow::on_actionGo_to_Line_triggered()
         e->setFocus();
     }
 }
-
 
 void MainWindow::on_actionNew_Template_triggered()
 {

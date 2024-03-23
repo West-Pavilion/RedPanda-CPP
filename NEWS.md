@@ -60,7 +60,6 @@ Red Panda C++ Version 2.27
   - fix: Custom compile options not correctly parsed.
   - enhancement: "Mouse scroll direction" option in Options / Editor / General
   - change: Invert scroll direction in horizontal, like in vertical.
-  - enhancement: Show type completion info after 'const' and 'volatile'
   - fix: Caret unseen when move to a long line end by press END.
   - fix: No icons for inherited class private members.
   - fix: Ctrl+Return insert linebreak shouldn't scroll unnecessarilly.
@@ -76,7 +75,10 @@ Red Panda C++ Version 2.27
   - enhancement: Syntax highlighting for c++ attributes.
   - enhancement: Show "std::function" in the completion list.
   - enhancement: Improvement in italic font support.
-  
+  - fix: History not correctly loaded with up/down arrow key in the debug console.
+  - enhancement: Improve lambda expression support.
+  - enhancement: Show type completion hint after "constexpr"/"extern"/"static"/"consteval"/"constinit"/"const"/"volatile" etc.
+  - enhancement: Restore line position after file is modified outside and reloaded.
   
 Red Panda C++ Version 2.26
   - enhancement: Code suggestion for embedded std::vectors.
@@ -130,6 +132,7 @@ Red Panda C++ Version 2.26
   - Enhancement: New option for compiler set "Don't localize gcc output messages"
   - Enhancement: Optimization for drawing scrollbars.
   - Enhancement: Issue #213 Expands macro when finding function tips.
+  - Enhancement: Vertically scroll by pixel.
   
 
 Red Panda C++ Version 2.25

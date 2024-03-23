@@ -58,6 +58,17 @@
 
 QHash<ParserLanguage,std::weak_ptr<CppParser>> Editor::mSharedParsers;
 
+static QSet<QString> CppTypeQualifiers {
+    "const",
+    "consteval",
+    "constexpr",
+    "constinit",
+    "extern",
+    "static",
+    "mutable",
+    "volatile",
+};
+
 Editor::Editor(QWidget *parent):
     Editor(parent,"untitled",ENCODING_AUTO_DETECT,nullptr,true,nullptr)
 {
@@ -691,7 +702,6 @@ void Editor::focusOutEvent(QFocusEvent *event)
     //pMainWindow->updateClassBrowserForEditor(nullptr);
     if (!pMainWindow->isQuitting()) {
         pMainWindow->functionTip()->hide();
-        pMainWindow->updateEditorActions(nullptr);
     }
 }
 
@@ -876,11 +886,11 @@ void Editor::keyPressEvent(QKeyEvent *event)
                     handled=true;
                     return;
                 } else {
-                    bool hasConst;
-                    QString lastWord = getPreviousWordAtPositionForSuggestion(ws, hasConst);
-                    if (mParser && (!lastWord.isEmpty() || hasConst)) {
+                    bool hasTypeQualifier;
+                    QString lastWord = getPreviousWordAtPositionForSuggestion(ws, hasTypeQualifier);
+                    if (mParser && (!lastWord.isEmpty() || hasTypeQualifier)) {
                         if (lastWord.isEmpty()) {
-                            Q_ASSERT(hasConst);
+                            Q_ASSERT(hasTypeQualifier);
                             processCommand(QSynedit::EditCommand::Char,ch,nullptr);
                             showCompletion(lastWord,false, CodeCompletionType::Types);
                             handled=true;
@@ -1443,8 +1453,8 @@ void Editor::inputMethodEvent(QInputMethodEvent *event)
             int idCharPressed=caretX()-ws.ch;
             idCharPressed += s.length();
             if (idCharPressed>=pSettings->codeCompletion().minCharRequired()) {
-                bool hasConst;
-                QString lastWord = getPreviousWordAtPositionForSuggestion(caretXY(), hasConst);
+                bool hasTypeQualifier;
+                QString lastWord = getPreviousWordAtPositionForSuggestion(caretXY(), hasTypeQualifier);
                 if (mParser && !lastWord.isEmpty()) {
                     if (CppTypeKeywords.contains(lastWord)) {
                         return;
@@ -4327,9 +4337,9 @@ void Editor::updateFunctionTip(bool showTip)
     //handle class initializer
     if (x >= 0 && hasPreviousWord) {
         QSynedit::BufferCoord pos = pWordBegin;
-        bool hasConst;
+        bool hasTypeQualifier;
         pos.ch = pWordBegin.ch;
-        QString previousWord = getPreviousWordAtPositionForSuggestion(pos, hasConst);
+        QString previousWord = getPreviousWordAtPositionForSuggestion(pos, hasTypeQualifier);
 
         PStatement statement = mParser->findStatementOf(
                     mFilename,
@@ -4921,9 +4931,9 @@ QString getWordAtPosition(QSynedit::QSynEdit *editor, const QSynedit::BufferCoor
     return result;
 }
 
-QString Editor::getPreviousWordAtPositionForSuggestion(const QSynedit::BufferCoord &p, bool &hasConst)
+QString Editor::getPreviousWordAtPositionForSuggestion(const QSynedit::BufferCoord &p, bool &hasTypeQualifier)
 {
-    hasConst = false;
+    hasTypeQualifier = false;
     QString result;
     if ((p.line<1) || (p.line>document()->count())) {
         return "";
@@ -4979,8 +4989,8 @@ QString Editor::getPreviousWordAtPositionForSuggestion(const QSynedit::BufferCoo
             return "";
 
         result = s.mid(wordBegin, wordEnd - wordBegin+1);
-        if (result == "const" || result == "volatile")
-            hasConst = true;
+        if (CppTypeQualifiers.contains(result))
+            hasTypeQualifier = true;
         else if (!skipNextWord)
             break;
         // if ((result != "const") && !skipNextWord)
@@ -5076,7 +5086,7 @@ void Editor::reformat(bool doReparse)
 #endif
     if (newContent.isEmpty())
         return;
-    int oldTopLine = topLine();
+    int oldTopPos = topPos();
     QSynedit::BufferCoord mOldCaret = caretXY();
 
     beginEditing();
@@ -5089,7 +5099,7 @@ void Editor::reformat(bool doReparse)
     setOptions(newOptions);
     replaceAll(QString::fromUtf8(newContent));
     setCaretXY(mOldCaret);
-    setTopLine(oldTopLine);
+    setTopPos(oldTopPos);
     setOptions(oldOptions);
     endEditing();
 
