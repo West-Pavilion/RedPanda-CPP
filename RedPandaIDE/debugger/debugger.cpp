@@ -34,6 +34,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include "widgets/signalmessagedialog.h"
+#include <QApplication>
 
 Debugger::Debugger(QObject *parent) : QObject(parent),
     mForceUTF8(false),
@@ -638,6 +639,11 @@ bool Debugger::useDebugServer() const
 void Debugger::setUseDebugServer(bool newUseDebugServer)
 {
     mUseDebugServer = newUseDebugServer;
+}
+
+bool Debugger::supportDisassemlyBlendMode()
+{
+    return mDebuggerType == DebuggerType::GDB;
 }
 
 bool Debugger::debugInfosUsingUTF8() const
@@ -2219,6 +2225,8 @@ QVariant RegisterModel::data(const QModelIndex &index, int role) const
                         ,"");
         }
         break;
+    case Qt::FontRole:
+        return QFont{pSettings->debugger().fontName(),pSettings->debugger().fontSize()};
     case Qt::ToolTipRole:
         switch (index.column()) {
         case 0:
@@ -2265,7 +2273,9 @@ void RegisterModel::updateNames(const QStringList &regNames)
 
 void RegisterModel::updateValues(const QHash<int, QString> registerValues)
 {
-    mRegisterValues= registerValues;
+    foreach(int row, registerValues.keys()){
+        mRegisterValues[row] = registerValues[row];
+    }
     emit dataChanged(createIndex(0,1),
                      createIndex(mRegisterNames.count()-1,1));
 }

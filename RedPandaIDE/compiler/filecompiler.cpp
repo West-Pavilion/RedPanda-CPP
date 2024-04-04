@@ -138,7 +138,6 @@ bool FileCompiler::prepareForCompile()
     default:
         throw CompileError(tr("Can't find the compiler for file %1").arg(mFilename));
     }
-
     if (!mOnlyCheckSyntax)
         mArguments += getLibraryArguments(fileType);
 

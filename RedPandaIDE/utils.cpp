@@ -105,6 +105,9 @@ FileType getFileType(const QString &filename)
     if (filename.endsWith(".vs",PATH_SENSITIVITY)) {
         return FileType::VerticeShader;
     }
+    if (filename.endsWith(".def",PATH_SENSITIVITY)) {
+        return FileType::ModuleDef;
+    }
     QFileInfo info(filename);
     if (info.suffix().isEmpty()) {
         return FileType::Other;
@@ -198,8 +201,8 @@ QMap<QString, QString> devCppMacroVariables()
         result["PROJECTFILENAME"] = extractFileName(e->filename());
         result["PROJECTPATH"] = localizePath(extractFileDir(e->filename()));
     } else if (pMainWindow->project()) {
-        result["EXENAME"] = extractFileName(pMainWindow->project()->executable());
-        result["EXEFILE"] = localizePath(pMainWindow->project()->executable());
+        result["EXENAME"] = extractFileName(pMainWindow->project()->outputFilename());
+        result["EXEFILE"] = localizePath(pMainWindow->project()->outputFilename());
         result["PROJECTNAME"] = pMainWindow->project()->name();
         result["PROJECTFILE"] = localizePath(pMainWindow->project()->filename());
         result["PROJECTFILENAME"] = extractFileName(pMainWindow->project()->filename());
@@ -320,16 +323,24 @@ bool isGreenEdition()
 #ifdef Q_OS_WIN
     if (!gIsGreenEditionInited) {
         QString appPath = QApplication::instance()->applicationDirPath();
-        appPath = excludeTrailingPathDelimiter(appPath);
+        appPath = excludeTrailingPathDelimiter(localizePath(appPath));
         QString keyString = R"(Software\Microsoft\Windows\CurrentVersion\Uninstall\RedPanda-C++)";
         QString systemInstallPath;
-        readRegistry(HKEY_LOCAL_MACHINE, keyString, "UninstallString", systemInstallPath);
-        if (!systemInstallPath.isEmpty())
+        readRegistry(HKEY_LOCAL_MACHINE, keyString, "InstallLocation", systemInstallPath);
+        if (systemInstallPath.isEmpty()) {
+            readRegistry(HKEY_LOCAL_MACHINE, keyString, "UninstallString", systemInstallPath);
             systemInstallPath = excludeTrailingPathDelimiter(extractFileDir(systemInstallPath));
+        } else
+            systemInstallPath = excludeTrailingPathDelimiter(systemInstallPath);
         QString userInstallPath;
-        readRegistry(HKEY_CURRENT_USER, keyString, "UninstallString", userInstallPath);
-        if (!userInstallPath.isEmpty())
+        readRegistry(HKEY_CURRENT_USER, keyString, "InstallLocation", userInstallPath);
+        if (userInstallPath.isEmpty()) {
+            readRegistry(HKEY_CURRENT_USER, keyString, "UninstallString", userInstallPath);
             userInstallPath = excludeTrailingPathDelimiter(extractFileDir(userInstallPath));
+        } else
+            userInstallPath = excludeTrailingPathDelimiter(userInstallPath);
+        systemInstallPath = localizePath(systemInstallPath);
+        userInstallPath = localizePath(userInstallPath);
         gIsGreenEdition = appPath.compare(systemInstallPath, Qt::CaseInsensitive) != 0 &&
                 appPath.compare(userInstallPath, Qt::CaseInsensitive) != 0;
         gIsGreenEditionInited = true;
@@ -346,6 +357,7 @@ QByteArray runAndGetOutput(const QString &cmd, const QString& workingDir, const 
 {
     QProcess process;
     QByteArray result;
+    bool errorOccurred = false;
     if (env.isEmpty()) {
         if (inheritEnvironment) {
             process.setProcessEnvironment(QProcessEnvironment::systemEnvironment());
@@ -355,21 +367,26 @@ QByteArray runAndGetOutput(const QString &cmd, const QString& workingDir, const 
     } else {
         process.setProcessEnvironment(env);
     }
+    process.setProcessChannelMode(QProcess::MergedChannels);
+    process.setReadChannel(QProcess::StandardOutput);
     process.setWorkingDirectory(workingDir);
-    process.connect(&process,&QProcess::readyReadStandardError,
-                    [&](){
-        result.append(process.readAllStandardError());
-    });
     process.connect(&process,&QProcess::readyReadStandardOutput,
                     [&](){
         result.append(process.readAllStandardOutput());
     });
+    process.connect(&process, &QProcess::errorOccurred,
+                    [&](){
+                        errorOccurred= true;
+                    });
     process.start(cmd,arguments);
     if (!inputContent.isEmpty()) {
         process.write(inputContent);
     }
     process.closeWriteChannel();
     process.waitForFinished();
+    if (errorOccurred) {
+        result += process.errorString().toLocal8Bit();
+    }
     return result;
 }
 
@@ -601,4 +618,20 @@ QString osArch()
 #else
     return QSysInfo::currentCpuArchitecture();
 #endif
+}
+
+QString byteArrayToString(const QByteArray &content, bool isUTF8)
+{
+    if (isUTF8)
+        return QString::fromUtf8(content);
+    else
+        return QString::fromLocal8Bit(content);
+}
+
+QByteArray stringToByteArray(const QString &content, bool isUTF8)
+{
+    if (isUTF8)
+        return content.toUtf8();
+    else
+        return content.toLocal8Bit();
 }

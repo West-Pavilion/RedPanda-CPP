@@ -43,8 +43,8 @@ Compiler::Compiler(const QString &filename, bool onlyCheckSyntax):
     mOnlyCheckSyntax{onlyCheckSyntax},
     mFilename{filename},
     mRebuild{false},
-    mForceEnglishOutput{false},
-    mParserForFile()
+    mParserForFile{},
+    mForceEnglishOutput{false}
 {
     getParserForFile(filename);
 }
@@ -452,6 +452,10 @@ QStringList Compiler::getCCompileArguments(bool checkSyntax)
             result << parseArguments(s, macros, true);
         }
     }
+
+    if (result.contains("-g3")) {
+        result << "-D_DEBUG";
+    }
     return result;
 }
 
@@ -492,6 +496,10 @@ QStringList Compiler::getCppCompileArguments(bool checkSyntax)
             s.replace("_@@_", " ");
             result << parseArguments(s, macros, true);
         }
+    }
+
+    if (result.contains("-g3")) {
+        result << "-D_DEBUG";
     }
     return result;
 }

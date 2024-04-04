@@ -251,11 +251,11 @@ QString Settings::Dirs::data(Settings::Dirs::DataType dataType) const
     case DataType::None:
         return dataDir;
     case DataType::ColorScheme:
-        return ":/colorschemes";
+        return ":/resources/colorschemes";
     case DataType::IconSet:
         return ":/resources/iconsets";
     case DataType::Theme:
-        return ":/themes";
+        return ":/resources/themes";
     case DataType::Template:
         return includeTrailingPathDelimiter(appResourceDir()) + "templates";
     }
@@ -1446,8 +1446,8 @@ void Settings::Editor::doLoad()
     mEnhanceHomeKey = boolValue("enhance_home_key", true);
     mEnhanceEndKey = boolValue("enhance_end_key",true);
     mKeepCaretX = boolValue("keep_caret_x",true);
-    mCaretForInsert = static_cast<QSynedit::EditCaretType>( intValue("caret_for_insert",static_cast<int>(QSynedit::EditCaretType::ctVerticalLine)));
-    mCaretForOverwrite = static_cast<QSynedit::EditCaretType>( intValue("caret_for_overwrite",static_cast<int>(QSynedit::EditCaretType::ctBlock)));
+    mCaretForInsert = static_cast<QSynedit::EditCaretType>( intValue("caret_for_insert",static_cast<int>(QSynedit::EditCaretType::VerticalLine)));
+    mCaretForOverwrite = static_cast<QSynedit::EditCaretType>( intValue("caret_for_overwrite",static_cast<int>(QSynedit::EditCaretType::Block)));
     mCaretUseTextColor = boolValue("caret_use_text_color",true);
     mCaretColor = colorValue("caret_color",Qt::yellow);
 
@@ -2413,7 +2413,7 @@ void Settings::CompilerSet::setGCCProperties(const QString& binDir, const QStrin
 #endif
             }
         }
-    }        
+    }
 
     // Set compiler folder
     QDir tmpDir(binDir);
@@ -2510,6 +2510,10 @@ QStringList Settings::CompilerSet::defines(bool isCpp) {
             if (!mCompileOptions[key].isEmpty())
                 arguments.append(pOption->setting + mCompileOptions[key]);
         }
+        pOption = CompilerInfoManager::getCompilerOption(compilerType(), CC_CMD_OPT_DEBUG_INFO);
+        if (pOption && mCompileOptions.contains(CC_CMD_OPT_DEBUG_INFO)) {
+            arguments.append(pOption->setting);
+        }
 #ifdef ENABLE_SDCC
     }
 #endif
@@ -2518,6 +2522,8 @@ QStringList Settings::CompilerSet::defines(bool isCpp) {
         QStringList extraParams = parseArgumentsWithoutVariables(mCustomCompileParams);
         arguments.append(extraParams);
     }
+    if (arguments.contains("-g3"))
+        arguments.append("-D_DEBUG");
     arguments.append(NULL_FILE);
 
     QFileInfo ccompiler(mCCompiler);
@@ -5039,7 +5045,7 @@ QStringList Settings::CodeFormatter::getArguments()
         result.append(QString("--max-continuation-indent=%1").arg(mMaxContinuationIndent));
     if (mBreakBlocks)
         result.append("--break-blocks");
-    if (mBreakBlocksAll)
+    else if (mBreakBlocksAll)
         result.append("--break-blocks=all");
     if (mPadOper)
         result.append("--pad-oper");
@@ -5125,7 +5131,6 @@ QStringList Settings::CodeFormatter::getArguments()
         if (mBreakAfterLogical)
             result.append("--break-after-logical");
     }
-
     return result;
 }
 
@@ -5738,7 +5743,7 @@ void Settings::CodeFormatter::doLoad()
     mAttachInlines = boolValue("attach_inlines",false);
     mAttachExternC = boolValue("attach_extern_c",false);
     mAttachClosingWhile = boolValue("attach_closing_while",false);
-    mIndentClasses = boolValue("indent_classes",true);
+    mIndentClasses = boolValue("indent_classes",false);
     mIndentModifiers = boolValue("indent_modifiers",false);
     mIndentSwitches = boolValue("indent_switches",true);
     mIndentCases = boolValue("indent_cases",false);

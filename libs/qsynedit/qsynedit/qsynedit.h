@@ -35,75 +35,70 @@
 namespace QSynedit {
 
 enum class ScrollStyle {
-    ssNone, ssHorizontal, ssVertical, ssBoth
+    None, OnlyHorizontal, OnlyVertical, Both
 };
 
 enum class EditCaretType {
-    ctVerticalLine=0, ctHorizontalLine=1, ctHalfBlock=2, ctBlock=3
+    VerticalLine=0, HorizontalLine=1, HalfBlock=2, Block=3
 };
 
-enum StatusChange {
-    scNone = 0,
-    scAll = 0x0001,
-    scCaretX = 0x0002,
-    scCaretY = 0x0004,
-    scLeftPos = 0x0008,
-    scTopPos = 0x0010,
-    scInsertMode = 0x0020,
-    scModifyChanged = 0x0040,
-    scSelection = 0x0080,
-    scReadOnly = 0x0100,
-    scOpenFile = 0x0200,
-    scModified = 0x0400
+enum class StatusChange {
+    None = 0,
+    AllCleared = 0x0001,
+    CaretX = 0x0002,
+    CaretY = 0x0004,
+    LeftPos = 0x0008,
+    TopPos = 0x0010,
+    InsertMode = 0x0020,
+    ModifyChanged = 0x0040,
+    Selection = 0x0080,
+    ReadOnly = 0x0100,
+    OpenFile = 0x0200,
+    Modified = 0x0400
 };
 
 Q_DECLARE_FLAGS(StatusChanges, StatusChange)
 Q_DECLARE_OPERATORS_FOR_FLAGS(StatusChanges)
 
 enum class StateFlag  {
-    sfCaretChanged =        0x0001,
-    sfHScrollbarChanged =   0x0002,
-    sfVScrollbarChanged =   0x0004,
-    sfLinesChanging =       0x0008,
-    sfIgnoreNextChar =      0x0010,
-    sfCaretVisible =        0x0020,
-    sfDblClicked =          0x0040,
-    sfWaitForDragging =     0x0080,
-    sfRedrawNeeded =        0x0100,
-    sfGutterRedrawNeeded =  0x0200,
+    HScrollbarChanged             = 0x0001,
+    VScrollbarChanged             = 0x0002,
+    DblClicked                    = 0x0004,
+    WaitForDragging               = 0x0008,
+    EnsureCaretVisible            = 0x0010,
+    EnsureCaretVisibleForceMiddle = 0x0020,
 };
-
 Q_DECLARE_FLAGS(StateFlags,StateFlag)
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(StateFlags)
 
-enum EditorOption {
-    eoAltSetsColumnMode =     0x00000001, //Holding down the Alt Key will put the selection mode into columnar format
-    eoAutoIndent =            0x00000002, //Will auto calculate the indent when input
-    eoLigatureSupport =       0x00000004, //Support ligaures in fonts like fira code
-    eoDragDropEditing =       0x00000008, //Allows you to select a block of text and drag it within the document to another location
-    eoDropFiles =             0x00000010, //Allows the editor accept OLE file drops
-    eoEnhanceHomeKey =        0x00000020, //enhances home key positioning, similar to visual studio
-    eoEnhanceEndKey =         0x00000040, //enhances End key positioning, similar to JDeveloper
-    eoGroupUndo =             0x00000080, //When undoing/redoing actions, handle all continous changes of the same kind in one call instead undoing/redoing each command separately
-    eoHalfPageScroll =        0x00000100, //When scrolling with page-up and page-down commands, only scroll a half page at a time
-    eoHideShowScrollbars =    0x00000200, //if enabled, then the scrollbars will only show when necessary.  If you have ScrollPastEOL, then it the horizontal bar will always be there (it uses MaxLength instead)
-    eoKeepCaretX =            0x00000400 , //When moving through lines w/o Cursor Past EOL, keeps the X position of the cursor
-    eoRightMouseMovesCursor=  0x00000800, //When clicking with the right mouse for a popup menu, move the cursor to that location
+enum class EditorOption {
+    AltSetsColumnMode =     0x00000001, //Holding down the Alt Key will put the selection mode into columnar format
+    AutoIndent =            0x00000002, //Will auto calculate the indent when input
+    LigatureSupport =       0x00000004, //Support ligaures in fonts like fira code
+    DragDropEditing =       0x00000008, //Allows you to select a block of text and drag it within the document to another location
+    DropFiles =             0x00000010, //Allows the editor accept OLE file drops
+    EnhanceHomeKey =        0x00000020, //enhances home key positioning, similar to visual studio
+    EnhanceEndKey =         0x00000040, //enhances End key positioning, similar to JDeveloper
+    GroupUndo =             0x00000080, //When undoing/redoing actions, handle all continous changes of the same kind in one call instead undoing/redoing each command separately
+    HalfPageScroll =        0x00000100, //When scrolling with page-up and page-down commands, only scroll a half page at a time
+    AutoHideScrollbars =    0x00000200, //if enabled, then the scrollbars will only show when necessary.  If you have ScrollPastEOL, then it the horizontal bar will always be there (it uses MaxLength instead)
+    KeepCaretX =            0x00000400 , //When moving through lines w/o Cursor Past EOL, keeps the X position of the cursor
+    RightMouseMovesCursor=  0x00000800, //When clicking with the right mouse for a popup menu, move the cursor to that location
 //    eoScrollByOneLess =       0x00001000, //Forces scrolling to be one less
-    eoScrollPastEof =         0x00002000, //Allows the cursor to go past the end of file marker
-    eoScrollPastEol =         0x00004000, //Allows the cursor to go past the last character into the white space at the end of a line
-    eoInvertMouseScroll =     0x00008000, //Shows the special Characters
+    ScrollPastEof =         0x00002000, //Allows the cursor to go past the end of file marker
+    ScrollPastEol =         0x00004000, //Allows the cursor to go past the last character into the white space at the end of a line
+    InvertMouseScroll =     0x00008000, //Shows the special Characters
 //  eoSpecialLineDefaultFg = 0x00010000, //disables the foreground text color override when using the OnSpecialLineColor event
-    eoTabIndent =             0x00020000, //When active <Tab> and <Shift><Tab> act as block indent, unindent when text is selected
-    eoTabsToSpaces =          0x00040000, //Converts a tab character to a specified number of space characters
-    eoShowRainbowColor    =   0x00080000,
-    eoSelectWordByDblClick =  0x00100000,
-    eoShowLeadingSpaces =     0x00200000,
-    eoShowTrailingSpaces =    0x00400000,
-    eoShowInnerSpaces =       0x00800000,
-    eoShowLineBreaks =        0x01000000,
-    eoForceMonospace =        0x02000000,
+    TabIndent =             0x00020000, //When active <Tab> and <Shift><Tab> act as block indent, unindent when text is selected
+    TabsToSpaces =          0x00040000, //Converts a tab character to a specified number of space characters
+    ShowRainbowColor    =   0x00080000,
+    SelectWordByDblClick =  0x00100000,
+    ShowLeadingSpaces =     0x00200000,
+    ShowTrailingSpaces =    0x00400000,
+    ShowInnerSpaces =       0x00800000,
+    ShowLineBreaks =        0x01000000,
+    ForceMonospace =        0x02000000,
 };
 
 Q_DECLARE_FLAGS(EditorOptions, EditorOption)
@@ -116,12 +111,6 @@ enum class SearchAction {
     ReplaceAndExit,
     Skip,
     Exit
-};
-
-
-
-enum class TransientType {
-    ttBefore, ttAfter
 };
 
 /*
@@ -213,8 +202,6 @@ public:
     void invalidateSelection();
     void invalidateRect(const QRect& rect);
     void invalidate();
-    void lockPainter();
-    void unlockPainter();
     bool selAvail() const;
     bool colSelAvail() const;
     QString wordAtCursor();
@@ -278,11 +265,6 @@ public:
     void addCaretToUndo();
     void addLeftTopToUndo();
     void addSelectionToUndo();
-    void replaceAll(const QString& text) {
-        mUndoList->addChange(ChangeReason::Selection,mBlockBegin,mBlockEnd,QStringList(), activeSelectionMode());
-        selectAll();
-        setSelText(text);
-    }
     void trimTrailingSpaces() {
         processCommand(EditCommand::TrimTrailingSpaces);
     }
@@ -388,8 +370,10 @@ public:
     bool empty();
 
     QString selText() const;
+    int selCount() const;
 
     QStringList getContent(BufferCoord startPos, BufferCoord endPos, SelectionMode mode) const;
+    void reparseDocument();
 
     QString lineBreak() const;
 
@@ -497,15 +481,20 @@ protected:
     virtual void onProcessCommand(EditCommand command, QChar car, void * pData);
     virtual void onCommandProcessed(EditCommand command, QChar car, void * pData);
     virtual void executeCommand(EditCommand command, QChar ch, void * pData);
-    virtual void onEndFirstPaintLock();
-    virtual void onBeginFirstPaintLock();
-
 protected:
+    void replaceAll(const QString& text);
+    int clientWidth() const;
+    int clientHeight() const;
+    int clientTop() const;
+    int clientLeft() const;
+    QRect clientRect() const;
     void doSelectLine();
     void incPaintLock();
     void decPaintLock();
     SyntaxState calcSyntaxStateAtLine(int line, const QString &newLineText);
 private:
+    int calcLineAlignedTopPos(int currentValue, bool passFirstLine);
+    void ensureLineAlignedWithTop(void);
     BufferCoord ensureBufferCoordValid(const BufferCoord& coord);
     void beginEditingWithoutUndo();
     void endEditingWithoutUndo();
@@ -513,12 +502,6 @@ private:
     void computeCaret();
     void computeScroll(bool isDragging);
 
-
-    int clientWidth() const;
-    int clientHeight() const;
-    int clientTop() const;
-    int clientLeft() const;
-    QRect clientRect() const;
     void synFontChanged();
 
     void doSetSelText(const QString& value);
@@ -534,14 +517,15 @@ private:
     void setStatusChanged(StatusChanges changes);
     void doOnStatusChange(StatusChanges changes);
     void updateHScrollbar();
+    void doUpdateHScrollbar();
     void updateVScrollbar();
+    void doUpdateVScrollbar();
     void updateCaret();
     void recalcCharExtent();
     QString expandAtWideGlyphs(const QString& S);
     void updateModifiedStatus();
     void reparseLines(int startLine, int endLine);
     //void reparseLine(int line);
-    void reparseDocument();
     void uncollapse(PCodeFoldingRange FoldRange);
     void collapse(PCodeFoldingRange FoldRange);
 
@@ -551,7 +535,6 @@ private:
     void rescanFolds(); // rescan for folds
     void rescanForFoldRanges();
     void scanForFoldRanges(PCodeFoldingRanges topFoldRanges);
-    int lineHasChar(int Line, int startChar, QChar character, const QString& tokenAttrName);
     void findSubFoldRange(PCodeFoldingRanges topFoldRanges,PCodeFoldingRanges& parentFoldRanges, PCodeFoldingRange Parent);
     PCodeFoldingRange collapsedFoldStartAtLine(int Line);
     void initializeCaret();
@@ -656,6 +639,8 @@ private:
 
 
 private slots:
+    void onMaxLineWidthChanged();
+    void updateHScrollBarLater();
     void onBookMarkOptionsChanged();
     void onGutterChanged();
     void onLinesChanged();
@@ -668,9 +653,10 @@ private slots:
     void onScrollTimeout();
     void onDraggingScrollTimeout();
     void onUndoAdded();
-    void onSizeOrFontChanged(bool bFont);
+    void onSizeOrFontChanged();
     void onChanged();
-    void onScrolled(int value);
+    void onHScrolled(int value);
+    void onVScrolled(int value);
 
 private:
     std::shared_ptr<QImage> mContentImage;
@@ -686,12 +672,10 @@ private:
     int mCaretY;
     int mCharWidth;
     QFont mFontDummy;
-    QFont mFontForNonAscii;
     bool mMouseMoved;
     QPoint mMouseOrigin;
 
     bool mInserting;
-    bool mPainting;
     PDocument mDocument;
     int mLinesInWindow;
     int mLeftPos;
@@ -729,7 +713,6 @@ private:
     bool mWantReturns;
     bool mWantTabs;
     Gutter mGutter;
-    QRect mInvalidateRect;
     StateFlags mStateFlags;
     EditorOptions mOptions;
     StatusChanges  mStatusChanges;
@@ -746,7 +729,6 @@ private:
 
     int mPaintTransientLock;
     bool mIsScrolling;
-    int mPainterLock; // lock counter to prevent repaint while painting
     int mOptionLock; // lock counter to prevent recalculate glyph widths while change settings;
     bool mUndoing;
     // event handlers

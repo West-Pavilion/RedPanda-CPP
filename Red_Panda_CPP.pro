@@ -20,6 +20,11 @@ RedPandaIDE.depends = astyle consolepauser qsynedit
 qsynedit.depends = redpanda_qt_utils
 
 APP_NAME = RedPandaCPP
+include(version.inc)
+
+!isEmpty(APP_VERSION_SUFFIX): {
+    APP_VERSION = "$${APP_VERSION}$${APP_VERSION_SUFFIX}"
+}
 
 win32: {
 SUBDIRS += \
@@ -71,16 +76,10 @@ unix:!macos: {
 win32: {
     !isEmpty(PREFIX) {
         target.path = $${PREFIX}
-        QMAKE_SUBSTITUTES += platform/windows/installer-scripts/config.nsh.in
-        QMAKE_SUBSTITUTES += platform/windows/installer-scripts/config32.nsh.in
-        QMAKE_SUBSTITUTES += platform/windows/installer-scripts/config-clang.nsh.in
 
         resources.path = $${PREFIX}
 
         resources.files += platform/windows/templates
-        resources.files += platform/windows/installer-scripts/config.nsh
-        resources.files += platform/windows/installer-scripts/config32.nsh
-        resources.files += platform/windows/installer-scripts/config-clang.nsh
         resources.files += platform/windows/qt.conf
         resources.files += README.md
         resources.files += NEWS.md

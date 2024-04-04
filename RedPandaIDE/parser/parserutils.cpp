@@ -150,7 +150,6 @@ void initParser()
     CppKeywords.insert("co_return",KeywordType::None);
     CppKeywords.insert("co_yield",KeywordType::None);
     CppKeywords.insert("reflexpr",KeywordType::None);
-
     // its a type
     CppKeywords.insert("auto",KeywordType::None);
     CppKeywords.insert("bool",KeywordType::None);
@@ -219,7 +218,7 @@ void initParser()
 
     // it's part of type info
     CppKeywords.insert("const",KeywordType::None);
-    CppKeywords.insert("extern",KeywordType::None);
+    CppKeywords.insert("extern",KeywordType::Extern);
 
     CppKeywords.insert("operator",KeywordType::Operator);
 
@@ -619,10 +618,10 @@ MemberOperatorType getOperatorType(const QString &phrase, int index)
 bool isScopeTypeKind(StatementKind kind)
 {
     switch(kind) {
-    case StatementKind::skClass:
-    case StatementKind::skNamespace:
-    case StatementKind::skEnumType:
-    case StatementKind::skEnumClassType:
+    case StatementKind::Class:
+    case StatementKind::Namespace:
+    case StatementKind::EnumType:
+    case StatementKind::EnumClassType:
         return true;
     default:
         return false;
@@ -714,17 +713,17 @@ bool isMemberOperator(QString token)
 StatementKind getKindOfStatement(const PStatement& statement)
 {
     if (!statement)
-        return StatementKind::skUnknown;
-    if (statement->kind == StatementKind::skVariable) {
+        return StatementKind::Unknown;
+    if (statement->kind == StatementKind::Variable) {
         if (!statement->parentScope.lock()) {
-            return StatementKind::skGlobalVariable;
+            return StatementKind::GlobalVariable;
         }  else if (statement->scope == StatementScope::Local) {
-            return StatementKind::skLocalVariable;
+            return StatementKind::LocalVariable;
         } else {
-            return StatementKind::skVariable;
+            return StatementKind::Variable;
         }
-    } else if (statement->kind == StatementKind::skParameter) {
-        return StatementKind::skLocalVariable;
+    } else if (statement->kind == StatementKind::Parameter) {
+        return StatementKind::LocalVariable;
     }
     return statement->kind;
 }
@@ -756,12 +755,12 @@ bool isCppControlKeyword(const QString &word)
 bool isTypeKind(StatementKind kind)
 {
     switch(kind) {
-    case StatementKind::skClass:
-    case StatementKind::skNamespace:
-    case StatementKind::skEnumType:
-    case StatementKind::skEnumClassType:
-    case StatementKind::skTypedef:
-    case StatementKind::skPreprocessor:
+    case StatementKind::Class:
+    case StatementKind::Namespace:
+    case StatementKind::EnumType:
+    case StatementKind::EnumClassType:
+    case StatementKind::Typedef:
+    case StatementKind::Preprocessor:
         return true;
     default:
         return false;

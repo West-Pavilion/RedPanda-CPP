@@ -208,6 +208,8 @@ MainWindow::MainWindow(QWidget *parent)
     delete m;
     ui->tblBreakpoints->setTextElideMode(Qt::ElideRight);
     ui->tblBreakpoints->setWordWrap(false);
+    connect(ui->tblBreakpoints, &QTableView::doubleClicked,
+            this, &MainWindow::onBreakpointTableDoubleClicked);
 
     m=ui->tblStackTrace->selectionModel();
     ui->tblStackTrace->setModel(mDebugger->backtraceModel().get());
@@ -399,6 +401,10 @@ MainWindow::MainWindow(QWidget *parent)
     delete m;
     connect(&mFileSystemModel, &QFileSystemModel::layoutChanged,
             this, &MainWindow::onFileSystemModelLayoutChanged, Qt::QueuedConnection);
+    connect(&mFileSystemModel, &QFileSystemModel::fileRenamed,
+            this, &MainWindow::onFileSystemModelLayoutChanged, Qt::QueuedConnection);
+    connect(&mFileSystemModel, &QFileSystemModel::fileRenamed,
+            this, &MainWindow::onFileRenamedInFileSystemModel);
     mFileSystemModel.setReadOnly(false);
     mFileSystemModel.setIconProvider(&mFileSystemModelIconProvider);
 
@@ -485,8 +491,8 @@ MainWindow::MainWindow(QWidget *parent)
     updateEditorActions();
     updateCaretActions();
     updateEditorColorSchemes();
-    updateShortcuts();
     updateTools();
+    updateShortcuts();
     updateEditorSettings();
     //updateEditorBookmarks();
 }
@@ -1206,8 +1212,85 @@ void MainWindow::onFileSaved(const QString &path, bool inProject)
             ui->treeFiles->update(index);
         }
     }
+#else
+    Q_UNUSED(path);
+    Q_UNUSED(inProject);
 #endif
     //updateForEncodingInfo();
+}
+
+void MainWindow::executeTool(PToolItem item)
+{
+    QMap<QString, QString> macros = devCppMacroVariables();
+    QString program = parseMacros(item->program, macros);
+    QString workDir = parseMacros(item->workingDirectory, macros);
+    QStringList params = parseArguments(item->parameters, macros, true);
+    Editor *e;
+    QByteArray inputContent;
+    QByteArray output;
+    clearToolsOutput();
+    switch(item->inputOrigin) {
+    case ToolItemInputOrigin::None:
+        break;
+    case ToolItemInputOrigin::CurrentSelection:
+        e=mEditorList->getEditor();
+        if (e)
+            inputContent=stringToByteArray(e->selText(), item->isUTF8);
+        break;
+    case ToolItemInputOrigin::WholeDocument:
+        e=mEditorList->getEditor();
+        if (e)
+            inputContent=stringToByteArray(e->text(), item->isUTF8);
+        break;
+    }
+    QString command;
+#ifdef Q_OS_WIN
+    if (!fileExists(program)) {
+        QTemporaryFile file(QDir::tempPath()+QDir::separator()+"XXXXXX.bat");
+        file.setAutoRemove(false);
+        if (file.open()) {
+            QString localizedDir=localizePath(workDir);
+            if (!localizedDir.isEmpty()) {
+                file.write(escapeCommandForPlatformShell(
+                    "cd", {"/d", localizedDir}
+                    ).toLocal8Bit() + LINE_BREAKER);
+            }
+            file.write(escapeCommandForPlatformShell(program, params).toLocal8Bit()
+                       + LINE_BREAKER);
+            file.close();
+            QString cmd="cmd";
+            QStringList args{"/C",file.fileName()};
+            command = escapeCommandForPlatformShell(cmd, args);
+            output = runAndGetOutput(cmd, workDir, args, inputContent);
+        }
+    } else {
+#endif
+        command = escapeCommandForPlatformShell(program, params);
+        output = runAndGetOutput(program, workDir, params, inputContent);
+#ifdef Q_OS_WIN
+    }
+#endif
+    switch(item->outputTarget) {
+    case ToolItemOutputTarget::RedirectToToolsOutputPanel:
+        logToolsOutput(tr(" - Command: %1").arg(command));
+        logToolsOutput("");
+        logToolsOutput(byteArrayToString(output, item->isUTF8));
+        stretchMessagesPanel(true);
+        ui->tabMessages->setCurrentWidget(ui->tabToolsOutput);
+        break;
+    case ToolItemOutputTarget::RedirectToNull:
+        break;
+    case ToolItemOutputTarget::RepalceWholeDocument:
+        e=mEditorList->getEditor();
+        if (e)
+            e->replaceContent(byteArrayToString(output, item->isUTF8));
+        break;
+    case ToolItemOutputTarget::ReplaceCurrentSelection:
+        e=mEditorList->getEditor();
+        if (e)
+            e->setSelText(byteArrayToString(output, item->isUTF8));
+        break;
+    }
 }
 
 int MainWindow::calIconSize(const QString &fontName, int fontPointSize)
@@ -1517,7 +1600,7 @@ void MainWindow::updateStatusbarForLineCol(const Editor* e, bool clear)
                         .arg(e->caretY())
                         .arg(e->document()->count())
                         .arg(col)
-                        .arg(e->selText().length());
+                        .arg(e->selCount());
             } else {
                 msg = tr("Line: %1/%2 Col: %3")
                         .arg(e->caretY())
@@ -1531,7 +1614,7 @@ void MainWindow::updateStatusbarForLineCol(const Editor* e, bool clear)
                         .arg(e->document()->count())
                         .arg(e->caretX())
                         .arg(e->lineText().length())
-                        .arg(e->selText().length());
+                        .arg(e->selCount());
             } else {
                 msg = tr("Line: %1/%2 Char: %3/%4")
                         .arg(e->caretY())
@@ -2170,7 +2253,7 @@ bool MainWindow::compile(bool rebuild, CppCompileType compileType)
         }
         mProject->buildPrivateResource();
         if (mCompileSuccessionTask) {
-            mCompileSuccessionTask->execName = mProject->executable();
+            mCompileSuccessionTask->execName = mProject->outputFilename();
             mCompileSuccessionTask->isExecutable = true;
         }
         stretchMessagesPanel(true);
@@ -2290,14 +2373,14 @@ void MainWindow::runExecutable(RunType runType)
     CompileTarget target =getCompileTarget();
     if (target == CompileTarget::Project) {
         QStringList binDirs = mProject->binDirs();
-        QFileInfo execInfo(mProject->executable());
+        QFileInfo execInfo(mProject->outputFilename());
         QDateTime execModTime = execInfo.lastModified();
         if (execInfo.exists() && mProject->modifiedSince(execModTime)) {
             //if project options changed, or units added/removed
             //mProject->saveAll();
             mCompileSuccessionTask=std::make_shared<CompileSuccessionTask>();
             mCompileSuccessionTask->type = runTypeToCompileSuccessionTaskType(runType);
-            mCompileSuccessionTask->execName=mProject->executable();
+            mCompileSuccessionTask->execName=mProject->outputFilename();
             mCompileSuccessionTask->isExecutable=true;
             mCompileSuccessionTask->binDirs=binDirs;
             compile(true);
@@ -2308,14 +2391,14 @@ void MainWindow::runExecutable(RunType runType)
             //mProject->saveAll();
             mCompileSuccessionTask=std::make_shared<CompileSuccessionTask>();
             mCompileSuccessionTask->type = runTypeToCompileSuccessionTaskType(runType);
-            mCompileSuccessionTask->execName=mProject->executable();
+            mCompileSuccessionTask->execName=mProject->outputFilename();
             mCompileSuccessionTask->isExecutable=true;
             mCompileSuccessionTask->binDirs=binDirs;
             compile();
             return;
         }
 
-        runExecutable(mProject->executable(),mProject->filename(),runType,
+        runExecutable(mProject->outputFilename(),mProject->filename(),runType,
                       binDirs);
     } else {
         Editor * editor = mEditorList->getEditor();
@@ -2405,24 +2488,24 @@ void MainWindow::debug()
         }
 
         // Did we compile?
-        if (!fileExists(mProject->executable())) {
+        if (!fileExists(mProject->outputFilename())) {
             mCompileSuccessionTask=std::make_shared<CompileSuccessionTask>();
             mCompileSuccessionTask->type = CompileSuccessionTaskType::Debug;
-            mCompileSuccessionTask->execName = mProject->executable();
+            mCompileSuccessionTask->execName = mProject->outputFilename();
             mCompileSuccessionTask->isExecutable = true;
             mCompileSuccessionTask->binDirs = binDirs;
             compile();
             return;
         }
         {
-            QFileInfo execInfo(mProject->executable());
+            QFileInfo execInfo(mProject->outputFilename());
             QDateTime execModTime = execInfo.lastModified();
             if (execInfo.exists() && mProject->modifiedSince(execModTime)) {
                 //if project options changed, or units added/removed
                 //mProject->saveAll();
                 mCompileSuccessionTask=std::make_shared<CompileSuccessionTask>();
                 mCompileSuccessionTask->type = CompileSuccessionTaskType::Debug;
-                mCompileSuccessionTask->execName=mProject->executable();
+                mCompileSuccessionTask->execName=mProject->outputFilename();
                 mCompileSuccessionTask->isExecutable=true;
                 mCompileSuccessionTask->binDirs=binDirs;
                 compile(true);
@@ -2433,7 +2516,7 @@ void MainWindow::debug()
                 //mProject->saveAll();
                 mCompileSuccessionTask=std::make_shared<CompileSuccessionTask>();
                 mCompileSuccessionTask->type = CompileSuccessionTaskType::Debug;
-                mCompileSuccessionTask->execName=mProject->executable();
+                mCompileSuccessionTask->execName=mProject->outputFilename();
                 mCompileSuccessionTask->isExecutable=true;
                 mCompileSuccessionTask->binDirs=binDirs;
                 compile();
@@ -2461,7 +2544,7 @@ void MainWindow::debug()
         }
         // Reset UI, remove invalid breakpoints
         prepareDebugger();
-        filePath = mProject->executable();
+        filePath = mProject->outputFilename();
 
 //        mDebugger->setUseUTF8(e->fileEncoding() == ENCODING_UTF8 || e->fileEncoding() == ENCODING_UTF8_BOM);
 
@@ -2653,7 +2736,7 @@ void MainWindow::prepareDebugger()
     // Clear logs
     ui->debugConsole->clear();
     if (pSettings->debugger().enableDebugConsole()) {
-        ui->debugConsole->addLine("(gdb) ");
+        ui->debugConsole->addLine("(gdb)");
     }
     ui->txtEvalOutput->clear();
 
@@ -2935,7 +3018,7 @@ void MainWindow::createCustomActions()
                 tr("Breakpoint condition..."),
                 ui->tblBreakpoints);
     connect(mBreakpointViewPropertyAction,&QAction::triggered,
-            this, &MainWindow::onBreakpointViewProperty);
+            this, &MainWindow::onModifyBreakpointCondition);
 
     mBreakpointViewRemoveAllAction = createAction(
                 tr("Remove All Breakpoints"),
@@ -3416,69 +3499,33 @@ void MainWindow::loadLastOpens()
 
 void MainWindow::updateTools()
 {
+    QList<QAction*> oldToolActions;
+    //save old custom tools actions.
+    foreach(QAction* action, ui->menuTools->actions()) {
+        if (action->objectName().startsWith("tool-"))
+            oldToolActions.append(action);
+    }
     ui->menuTools->clear();
+    //delete old custom tools actions;
+    for(int i=0;i<oldToolActions.length();i++) {
+        delete oldToolActions[i];
+    }
     ui->menuTools->addAction(ui->actionOptions);
     if (!mToolsManager->tools().isEmpty()) {
         ui->menuTools->addSeparator();
+        QList<QAction*> actions;
         foreach (const PToolItem& item, mToolsManager->tools()) {
-            QAction* action = new QAction(item->title,ui->menuTools);
+            QAction* action = createShortcutCustomableAction(item->title,"tool-"+item->id);
             connect(action, &QAction::triggered,
-                    [item] (){
-                QMap<QString, QString> macros = devCppMacroVariables();
-                QString program = parseMacros(item->program, macros);
-                QString workDir = parseMacros(item->workingDirectory, macros);
-                QStringList params = parseArguments(item->parameters, macros, true);
-                if (!program.endsWith(".bat",Qt::CaseInsensitive)) {
-                    QTemporaryFile file(QDir::tempPath()+QDir::separator()+"XXXXXX.bat");
-                    file.setAutoRemove(false);
-                    if (file.open()) {
-                        file.write(escapeCommandForPlatformShell(
-                            "cd", {"/d", localizePath(workDir)}
-                            ).toLocal8Bit() + LINE_BREAKER);
-                        file.write(escapeCommandForPlatformShell(program, params).toLocal8Bit()
-                                   + LINE_BREAKER);
-                        file.close();
-                        if (item->pauseAfterExit) {
-                            QString sharedMemoryId = QUuid::createUuid().toString();
-                            QStringList execArgs = QStringList{
-                                QString::number(RPF_PAUSE_CONSOLE),
-                                sharedMemoryId,
-                                localizePath(file.fileName())
-                            };
-                            executeFile(
-                                        includeTrailingPathDelimiter(pSettings->dirs().appLibexecDir())+CONSOLE_PAUSER,
-                                        execArgs,
-                                        workDir, file.fileName());
-                        } else {
-                            executeFile(
-                                        file.fileName(),
-                                        {},
-                                        workDir, file.fileName());
-                        }
-                    }
-                } else {
-                    if (item->pauseAfterExit) {
-                        QString sharedMemoryId = QUuid::createUuid().toString();
-                        QStringList execArgs = QStringList{
-                            QString::number(RPF_PAUSE_CONSOLE),
-                            sharedMemoryId,
-                            localizePath(program)
-                        };
-                        executeFile(
-                                    includeTrailingPathDelimiter(pSettings->dirs().appLibexecDir())+CONSOLE_PAUSER,
-                                    execArgs + params,
-                                    workDir, "");
-                    } else {
-                        executeFile(
-                                    program,
-                                    params,
-                                    workDir, "");
-                    }
-                }
-
+                    [item,this] (){
+                executeTool(item);
             });
             ui->menuTools->addAction(action);
+            actions.append(action);
         }
+        ShortcutManager shortcutManager;
+        shortcutManager.load();
+        shortcutManager.applyTo(actions);
     }
 }
 
@@ -4765,6 +4812,16 @@ void MainWindow::onDebugConsoleCopy()
 void MainWindow::onDebugConsoleClear()
 {
     ui->debugConsole->clear();
+    if (pSettings->debugger().enableDebugConsole()) {
+        ui->debugConsole->addLine("(gdb)");
+    }
+}
+
+void MainWindow::onBreakpointTableDoubleClicked(const QModelIndex &index)
+{
+    if (index.isValid() && index.column()==2) {
+        modifyBreakpointCondition(index.row());
+    }
 }
 
 void MainWindow::onFilesViewOpenInExplorer()
@@ -5031,25 +5088,11 @@ void MainWindow::onBreakpointViewRemoveAll()
     }
 }
 
-void MainWindow::onBreakpointViewProperty()
+void MainWindow::onModifyBreakpointCondition()
 {
     int index =ui->tblBreakpoints->selectionModel()->currentIndex().row();
 
-    PBreakpoint breakpoint = debugger()->breakpointModel()->breakpoint(
-                index,
-                debugger()->isForProject()
-                );
-    if (breakpoint) {
-        bool isOk;
-        QString s=QInputDialog::getText(this,
-                                  tr("Break point condition"),
-                                  tr("Enter the condition of the breakpoint:"),
-                                QLineEdit::Normal,
-                                breakpoint->condition,&isOk);
-        if (isOk) {
-            pMainWindow->debugger()->setBreakPointCondition(index,s,debugger()->isForProject());
-        }
-    }
+    modifyBreakpointCondition(index);
 }
 
 void MainWindow::onSearchViewClearAll()
@@ -5611,6 +5654,18 @@ void MainWindow::on_EditorTabsRight_tabCloseRequested(int index)
 void MainWindow::onFileSystemModelLayoutChanged()
 {
     ui->treeFiles->scrollTo(ui->treeFiles->currentIndex(),QTreeView::PositionAtCenter);
+}
+
+void MainWindow::onFileRenamedInFileSystemModel(const QString &path, const QString &oldName, const QString &newName)
+{
+    QDir folder(path);
+    QString oldFile = folder.absoluteFilePath(oldName);
+    QString newFile = folder.absoluteFilePath(newName);
+
+    Editor *e = mEditorList->getOpenedEditorByFilename(oldFile);
+    if (e) {
+        e->setFilename(newFile);
+    }
 }
 
 void MainWindow::on_actionOpen_triggered()
@@ -7775,6 +7830,26 @@ QString MainWindow::switchHeaderSourceTarget(Editor *editor)
     return QString();
 }
 
+void MainWindow::modifyBreakpointCondition(int index)
+{
+    PBreakpoint breakpoint = debugger()->breakpointModel()->breakpoint(
+                index,
+                debugger()->isForProject()
+                );
+    if (breakpoint) {
+        bool isOk;
+        QString s=QInputDialog::getText(this,
+                                  tr("Break point condition"),
+                                  tr("Enter the condition of the breakpoint:"),
+                                QLineEdit::Normal,
+                                breakpoint->condition,&isOk);
+        if (isOk) {
+            debugger()->setBreakPointCondition(index,s,debugger()->isForProject());
+        }
+    }
+
+}
+
 void MainWindow::setupSlotsForProject()
 {
     connect(mProject.get(), &Project::unitAdded,
@@ -8185,7 +8260,7 @@ void MainWindow::doCompileRun(RunType runType)
     QString execName;
     if (target == CompileTarget::Project) {
         binDirs = mProject->binDirs();
-        execName = mProject->executable();
+        execName = mProject->outputFilename();
     } else {
         binDirs = getDefaultCompilerSetBinDirs();
     }

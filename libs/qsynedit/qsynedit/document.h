@@ -132,7 +132,7 @@ private:
      * @brief get the width (pixel) of the line text
      * @return the width (in width)
      */
-    int width();
+    int width(bool forceUpdate=false);
 
     /**
      * @brief get the state of the syntax highlighter after this line is parsed
@@ -147,7 +147,7 @@ private:
 
     void setLineText(const QString &newLineText);
     void updateWidth();
-    void invalidateWidth() { mWidth = -1; mGlyphStartPositionList.clear(); }
+    void invalidateWidth() { mWidth = -1; mGlyphStartPositionList.clear(); mIsTempWidth = true;}
 private:
     QString mLineText; /* the unicode code points of the text */
     /**
@@ -181,7 +181,7 @@ private:
      * so it must be recalculated each time the font is changed.
      */
     int mWidth;
-
+    bool mIsTempWidth;
     UpdateWidthFunc mUpdateWidthFunc;
 
     friend class Document;
@@ -567,7 +567,7 @@ signals:
     void deleted(int startLine, int count);
     void inserted(int startLine, int count);
     void putted(int line);
-    void maxLineWidthChanged(int newWidth);
+    void maxLineWidthChanged();
 protected:
     QString getTextStr() const;
     void setUpdateState(bool Updating);
@@ -576,8 +576,12 @@ protected:
     void putTextStr(const QString& text);
     void internalClear();
 private:
-    void setLineWidth(int line, const QString& lineText, int newWidth, const QList<int> glyphStartPositionList);
-    void updateLongestLineWidth(int line, int width);
+    bool lineWidthValid(int line);
+    void beginSetLinesWidth();
+    void endSetLinesWidth();
+    void setLineWidth(int line, int newWidth, const QList<int> glyphStartPositionList);
+    void updateMaxLineWidthChanged();
+    void updateMaxLineWidthAndNotify();
 
     int glyphWidth(const QString& glyph, int left,
                    const QFontMetrics &fontMetrics,
@@ -592,7 +596,9 @@ private:
     QList<int> calcGlyphPositionList(const QString& lineText, const QList<int> &glyphStartCharList, int left, int &right) const;
     QList<int> calcGlyphPositionList(const QString& lineText, int &width) const;
     QList<int> getGlyphStartCharList(int line, const QString &lineText);
-    QList<int> getGlyphStartPositionList(int line, const QString &lineText, int &lineWidth);
+    QList<int> getGlyphStartCharList(int line);
+    QList<int> getGlyphStartPositionList(int line);
+    int getLineWidth(int line);
     bool tryLoadFileByEncoding(QByteArray encodingName, QFile& file);
     void loadUTF16BOMFile(QFile& file);
     void loadUTF32BOMFile(QFile& file);
@@ -617,6 +623,9 @@ private:
     int mIndexOfLongestLine;
     int mUpdateCount;
     bool mForceMonospace;
+
+    int mSetLineWidthLockCount;
+    bool mMaxLineChangedInSetLinesWidth;
 #if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     QRecursiveMutex mMutex;
 #else

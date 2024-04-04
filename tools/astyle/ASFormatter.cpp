@@ -3592,16 +3592,72 @@ bool ASFormatter::isInSwitchStatement() const
  */
 bool ASFormatter::isInExponent() const
 {
-	assert(currentChar == '+' || currentChar == '-');
+    assert (currentChar == '+' || currentChar == '-');
 
-	if (charNum >= 2)
-	{
-		char prevPrevFormattedChar = currentLine[charNum - 2];
-		char prevFormattedChar = currentLine[charNum - 1];
-		return ((prevFormattedChar == 'e' || prevFormattedChar == 'E')
-		        && (prevPrevFormattedChar == '.' || isDigit(prevPrevFormattedChar)));
-	}
-	return false;
+    if (charNum < 2)
+        return false;
+
+    int i = charNum - 1;
+    unsigned char prevChar = currentLine[i];
+
+    if (prevChar == 'e' || prevChar == 'E') {
+        i--;
+        bool hasPoint = false;
+        int numCount = 0;
+        while (i >= 0) {
+            prevChar = currentLine[i];
+            if (prevChar == '.') {
+                if (hasPoint)
+                    return false;
+                hasPoint = true;
+            } else if (isDigit(prevChar)) {
+                numCount++;
+            } else {
+                if (isLetterOrUnderLine(prevChar) || prevChar == '$'
+                        || prevChar>127)
+                    return false;
+                break;
+            }
+            i--;
+        }
+        return numCount > 0;
+    }
+
+    if (prevChar == 'p' || prevChar == 'P') {
+        i--;
+        bool hasPoint = false;
+        bool hasX = false;
+        int numCount = 0;
+        while (i >= 0) {
+            prevChar = currentLine[i];
+            if (isHexDigit(prevChar)) {
+                if (hasX)
+                    return false;
+                numCount++ ;
+            } else if (prevChar == '.') {
+                if (hasPoint || hasX)
+                    return false;
+                hasPoint = true;
+            } else if ( prevChar == 'x' || prevChar =='X') {
+                if (hasX)
+                    return false;
+                i--;
+                if (i<0)
+                    return false;
+                if (currentLine[i]!='0')
+                    return false;
+                hasX = true;
+            } else {
+                if (isLetterOrUnderLine(prevChar) || prevChar == '$'
+                        || prevChar>127)
+                    return false;
+                break;
+            }
+            i--; //XQ135 modify//  Floating-point number supporting hexadecimal representation
+        }
+        return hasX && numCount > 0;
+    }
+    return false;
 }
 
 /**

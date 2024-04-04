@@ -44,7 +44,7 @@ void SettingsWidget::init()
     connect(pIconsManager,&IconsManager::actionIconsUpdated,
             this, &SettingsWidget::onUpdateIcons);
     onUpdateIcons();
-    load();
+    //load();
     connectInputs();
 }
 
@@ -199,6 +199,12 @@ void SettingsWidget::clearSettingsChanged()
 {
     mSettingsChanged = false;
     emit settingsChanged(false);
+}
+
+void SettingsWidget::showEvent(QShowEvent *event)
+{
+    Q_UNUSED(event);
+    load();
 }
 
 void SettingsWidget::onUpdateIcons()

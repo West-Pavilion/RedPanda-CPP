@@ -279,6 +279,7 @@ public slots:
     void onFileSaved(const QString& path, bool inProject);
 
 private:
+    void executeTool(PToolItem item);
     int calIconSize(const QString &fontName, int fontPointSize);
     void hideAllSearchDialogs();
     void prepareSearchDialog();
@@ -331,6 +332,8 @@ private:
 
     void reparseNonProjectEditors();
     QString switchHeaderSourceTarget(Editor *editor);
+
+    void modifyBreakpointCondition(int index);
 
 private slots:
     void setupSlotsForProject();
@@ -399,6 +402,7 @@ private slots:
     void onDebugConsoleSelectAll();
     void onDebugConsoleCopy();
     void onDebugConsoleClear();
+    void onBreakpointTableDoubleClicked(const QModelIndex& index);
     void onFilesViewOpenInExplorer();
     void onFilesViewOpenInTerminal();
     void onFilesViewOpenWithExternal();
@@ -420,7 +424,7 @@ private slots:
     void onProjectRenameUnit();
     void onBreakpointRemove();
     void onBreakpointViewRemoveAll();
-    void onBreakpointViewProperty();
+    void onModifyBreakpointCondition();
     void onSearchViewClearAll();
     void onSearchViewClear();
     void onTableIssuesClear();
@@ -433,6 +437,7 @@ private slots:
     void on_EditorTabsRight_tabCloseRequested(int index);
 
     void onFileSystemModelLayoutChanged();
+    void onFileRenamedInFileSystemModel(const QString &path, const QString &oldName, const QString &newName);
 
     void on_actionOpen_triggered();
 

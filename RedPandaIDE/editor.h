@@ -149,6 +149,7 @@ public:
     void saveFile(QString filename);
     bool save(bool force=false, bool reparse=true);
     bool saveAs(const QString& name="", bool fromProject = false);
+    void setFilename(const QString& newName);
     void activate();
 
     QTabWidget* pageControl() noexcept;
@@ -187,6 +188,7 @@ public:
     QString getPreviousWordAtPositionForSuggestion(const QSynedit::BufferCoord& p, bool &hasTypeQualifier);
     QString getPreviousWordAtPositionForCompleteFunctionDefinition(const QSynedit::BufferCoord& p);
     void reformat(bool doReparse=true);
+    void replaceContent(const QString &newContent, bool doReparse=true);
     void checkSyntaxInBack();
     void gotoDeclaration(const QSynedit::BufferCoord& pos);
     void gotoDefinition(const QSynedit::BufferCoord& pos);
@@ -356,6 +358,7 @@ private:
     int mHoverModifiedLine;
     int mWheelAccumulatedDelta;
     QMap<QString,StatementKind> mIdentCache;
+    qint64 mLastFocusOutTime;
 
     static QHash<ParserLanguage,std::weak_ptr<CppParser>> mSharedParsers;
 
@@ -399,6 +402,8 @@ public:
 
     bool canAutoSave() const;
     void setCanAutoSave(bool newCanAutoSave);
+
+    quint64 lastFocusOutTime() const;
 
 protected:
     void mousePressEvent(QMouseEvent *event) override;

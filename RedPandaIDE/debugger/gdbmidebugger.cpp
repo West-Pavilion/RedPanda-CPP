@@ -471,20 +471,24 @@ void GDBMIDebuggerClient::handleRegisterNames(const QList<GDBMIResultParser::Par
     emit registerNamesUpdated(nameList);
 }
 
-void GDBMIDebuggerClient::handleRegisterValue(const QList<GDBMIResultParser::ParseValue> &values)
+void GDBMIDebuggerClient::handleRegisterValue(const QList<GDBMIResultParser::ParseValue> &values, bool hexValue)
 {
     QHash<int,QString> result;
     foreach (const GDBMIResultParser::ParseValue& val, values) {
         GDBMIResultParser::ParseObject obj = val.object();
         int number = obj["number"].intValue();
         QString value = obj["value"].value();
-        bool ok;
-        long long intVal;
-        intVal = value.toLongLong(&ok,10);
-        if (ok) {
-            value = QString("0x%1").arg(intVal,0,16);
+        if (hexValue) {
+            bool ok;
+            value.toLongLong(&ok,16);
+            if (ok)
+                result.insert(number,value);
+        } else {
+            bool ok;
+            value.toLongLong(&ok,10);
+            if (!ok)
+                result.insert(number,value);
         }
-        result.insert(number,value);
     }
     emit registerValuesUpdated(result);
 }
@@ -563,9 +567,9 @@ void GDBMIDebuggerClient::handleDisassembly(const QList<GDBMIResultParser::Parse
             QString offset = obj["offset"].value();
             qulonglong addrVal = addr.toULongLong(&ok, 16);
             if (addrVal == mCurrentAddress) {
-                line = "==> "+addr+ " " + inst;
+                line = "=> "+addr+ " " + inst;
             } else {
-                line = "    "+addr+ " " + inst;
+                line = "   "+addr+ " " + inst;
             }
             lines.append(line);
         }
@@ -712,7 +716,7 @@ void GDBMIDebuggerClient::processResult(const QByteArray &result)
         handleRegisterNames(multiValues["register-names"].array());
         break;
     case GDBMIResultType::RegisterValues:
-        handleRegisterValue(multiValues["register-values"].array());
+        handleRegisterValue(multiValues["register-values"].array(), mCurrentCmd->params=="x");
         break;
     case GDBMIResultType::CreateVar:
         handleCreateVar(multiValues);
@@ -841,7 +845,7 @@ void GDBMIDebuggerClient::processResultRecord(const QByteArray &line)
             QByteArray result = line.mid(pos+1);
             processResult(result);
         } else if (mCurrentCmd && !(mCurrentCmd->command.startsWith('-'))) {
-            if (mCurrentCmd->command == "disas") {
+            if (mCurrentCmd->command == "disas" && mCurrentCmd->source != DebugCommandSource::Console) {
                 QStringList disOutput = mConsoleOutput;
                 if (disOutput.length()>=3) {
                     disOutput.pop_back();
@@ -981,13 +985,13 @@ void GDBMIDebuggerClient::initialize(const QString& inferior, bool hasSymbols)
     postCommand("-enable-pretty-printing","");
     postCommand("-gdb-set", "width 0"); // don't wrap output, very annoying
     postCommand("-gdb-set", "confirm off");
-    postCommand("-gdb-set", "print repeats 10");
-    postCommand("-gdb-set", "print null-stop");
-    postCommand("-gdb-set", QString("print elements %1").arg(pSettings->debugger().arrayElements())); // limit array elements to 30
-    postCommand("-gdb-set", QString("print characters %1").arg(pSettings->debugger().characters())); // limit array elements to 300
+    if (clientType() == DebuggerType::GDB) {
+        postCommand("-gdb-set", "print repeats 10");
+        postCommand("-gdb-set", "print null-stop");
+        postCommand("-gdb-set", QString("print elements %1").arg(pSettings->debugger().arrayElements())); // limit array elements to 30
+        postCommand("-gdb-set", QString("print characters %1").arg(pSettings->debugger().characters())); // limit array elements to 300
+    }
     postCommand("-environment-cd", QString("\"%1\"").arg(extractFileDir(inferior))); // restore working directory
-    if (clientType()==DebuggerType::GDB)
-        postCommand("-data-list-register-names","");
 
     if (hasSymbols) {
         postCommand("-file-exec-and-symbols", '"' + inferior + '"');
@@ -1103,7 +1107,7 @@ void GDBMIDebuggerClient::addBreakpoint(PBreakpoint breakpoint)
         // break "filename":linenum
         QString condition;
         if (!breakpoint->condition.isEmpty()) {
-            condition = " -c " + breakpoint->condition;
+            condition = QString(" -c \"%1\"").arg(breakpoint->condition);
         }
         QString filename = breakpoint->filename;
         filename.replace('\\','/');
@@ -1141,7 +1145,7 @@ void GDBMIDebuggerClient::setBreakpointCondition(PBreakpoint breakpoint)
                     QString("%1").arg(breakpoint->number));
     } else {
         postCommand("-break-condition",
-                    QString("%1 %2").arg(breakpoint->number).arg(condition));
+                    QString("%1 \"%2\"").arg(breakpoint->number).arg(condition));
     }
 }
 
@@ -1208,8 +1212,8 @@ void GDBMIDebuggerClient::refreshFrame()
 
 void GDBMIDebuggerClient::refreshRegisters()
 {
-    if (clientType()==DebuggerType::LLDB_MI)
-        postCommand("-data-list-register-names","");
+    postCommand("-data-list-register-names","");
+    postCommand("-data-list-register-values", "x");
     postCommand("-data-list-register-values", "N");
 }
 

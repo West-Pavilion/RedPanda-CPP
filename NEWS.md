@@ -43,10 +43,8 @@ Red Panda C++ Version 2.27
   - fix: Function tips contains functions that not in the scope.
   - fix: Hint for bold text (<b></b>) are not correctly handled in the function tips.
   - enhancement: Improve lldb-mi compatibility.
-  - fix: Full scope typed variables in lambda expressions is not correctly parsed. 
   - fix: Failed to evaluate expressions while debugging, if the expression has spaces in it.
   - fix: When debugging, can't watch expressions that has spaces in it.
-  - fix: Shortcuts in non-editor panels conficts with the editor.
   - enhancement: Font list in the options / editor / font panel( by CyanoHao  ). 
   - enhancement: Text are vertically center aligned in lines( by CyanoHao  ).
   - fix: In the debugger console, Auto-wrapped lines  can't be correctly selected.
@@ -56,9 +54,7 @@ Red Panda C++ Version 2.27
   - enhancement: Execute the last debug command in the debug console if ENTER pressed.
   - change: When debugging, don't auto set focus to the editor.
   - enhancement: Folding button scales with editor font.
-  - fix: Should show header completion popup in #include line comments.
-  - fix: Custom compile options not correctly parsed.
-  - enhancement: "Mouse scroll direction" option in Options / Editor / General
+  - fix: Shouldn't show header completion popup in #include line comments.
   - change: Invert scroll direction in horizontal, like in vertical.
   - fix: Caret unseen when move to a long line end by press END.
   - fix: No icons for inherited class private members.
@@ -77,9 +73,51 @@ Red Panda C++ Version 2.27
   - enhancement: Improvement in italic font support.
   - fix: History not correctly loaded with up/down arrow key in the debug console.
   - enhancement: Improve lambda expression support.
-  - enhancement: Show type completion hint after "constexpr"/"extern"/"static"/"consteval"/"constinit"/"const"/"volatile" etc.
+  - enhancement: Show type completion hint after "constexpr"/"extern"/"static"/"consteval"/"constinit"/"const"/"volatile"/"inline" etc.
   - enhancement: Restore line position after file is modified outside and reloaded.
-  
+  - fix: Caret on '('/',' in string/comment shouldn't invoke function info tips.
+  - fix: Function name not correctly found if it and the '(' is not in one line;
+  - fix: Register names in the cpu info are not in correct order.
+  - enhancement: Auto type induction for new / temp class object.
+  - enhancement: Vertically scroll by pixel.
+  - enhancement: Display (gdb) prompt in debug console after it's cleared.
+  - fix: Output of "disas" is not shown in debug console.
+  - fix: Display not correctly updated after select all in debug console.
+  - change: Set focus to "find next" button when find/replace dialog is openned.
+  - change: Don't set focus to "close" button after searched in the find/replace dialog
+  - change: Set focus to "find" button when "find in files..." dialog is openned.
+  - enhancement: Correct tab orders for all setting pages/dialogs.
+  - enhancement: Shortcut key for buttons in find/replace and "find in files" dialogs.  
+  - enhancement: Auto define macro "_DEBUG" for "Debug" compiler set(like visual studio).
+  - enhancement: Suggest macro names after "#ifdef"/"#ifndef"/"#undef".
+  - enhancement: If contents from stderr are logged into "Tools Output" panel, add problem case name info to the log. 
+  - fix: In split screen mode, editor on the right can't be correctly found by commands.
+  - fix: Remove duplicated macro defines make it's lost in the parse result.
+  - fix: An undefined macro is still missing the the parse result after #undef is removed.
+  - fix: If a class method is overloaded, only one of them is inherited by it's children.
+  - enhancement: Adjust function tip pos to prevent it from run outside the right window edge.
+  - enhancement: Open ".def" (Module definition file) file in editor when double click it in the project view.
+  - enhancement: When a dll project has .def file, use it when generating the dll file.  
+  - fix: "project name".exe.manifest is auto removed when build the project.
+  - fix: "0x3.12p+1" is treadted as a plus expression when reformatting code. ( by 绣球135@qq ）
+  - change: Don't turn on the code format option "indent class" by default.
+  - enhancement: Add compiler set by choose the executable.
+  - fix: Compile info for project doesn't have name of the project executable.
+  - enhancement: Highlight words in the string/comments.
+  - fix: If there are only 1 line in the editor, shift+down can't select it.
+  - enhancement: By default, use monospaced font to display register values in the CPU Info dialog.
+  - fix: Negative values in register like AH/AL are wrongs displayed as 32/64-bit number.
+  - Change: Change background color for highlighted buttons in the default theme.
+  - enhancement: Make colors in code suggestion popup consistent with the editor.
+  - enhancement: Make colors in header suggestion popup consistent with the editor.
+  - fix: C++ source after ';' are treated as comments in cpu info window.
+  - enhancement: Support "extern template" in code parser.
+  - enhancement: Set shortcuts for tools menu item.
+  - enhancement: Enhancement for custom tools.
+  - fix: Can't correctly undo/redo "Delete current line".
+  - fix: Breakpoint condition expression that contains spaces doesn't work.
+  - enhancement: Double click on breakpoint table's condition cell to modify it.
+    
 Red Panda C++ Version 2.26
   - enhancement: Code suggestion for embedded std::vectors.
   - change: Use ctrl+mouseMove event to highlight jumpable symbols (instead of ctrl+tooltip).
@@ -132,8 +170,6 @@ Red Panda C++ Version 2.26
   - Enhancement: New option for compiler set "Don't localize gcc output messages"
   - Enhancement: Optimization for drawing scrollbars.
   - Enhancement: Issue #213 Expands macro when finding function tips.
-  - Enhancement: Vertically scroll by pixel.
-  
 
 Red Panda C++ Version 2.25
 

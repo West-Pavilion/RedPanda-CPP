@@ -49,6 +49,7 @@ enum class FileType{
     Text, // text file
     FragmentShader,
     VerticeShader,
+    ModuleDef, // Windows Module Definition
     Other // any others
 };
 
@@ -171,6 +172,9 @@ QStringList platformCommandForTerminalArgsPreview();
 
 QString appArch();
 QString osArch();
+
+QString byteArrayToString(const QByteArray &content, bool isUTF8);
+QByteArray stringToByteArray(const QString& content, bool isUTF8);
 
 #ifdef _MSC_VER
 #define __builtin_unreachable() (__assume(0))
